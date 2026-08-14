@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reaction diffusion</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #111;
+            color: #888;
+            font: 12px monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            height: 100vh;
+        }
+
+        #controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        select, button {
+            font: inherit;
+            background: none;
+            color: #888;
+            border: 1px solid #333;
+            padding: 3px 8px;
+            cursor: pointer;
+        }
+
+        select:hover, button:hover {
+            border-color: #666;
+            color: #ccc;
+        }
+
+        canvas {
+            border: 1px solid #222;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <select id="preset">
+            <option value="coral">coral</option>
+            <option value="mitosis">mitosis</option>
+            <option value="spirals">spirals</option>
+            <option value="worms">worms</option>
+            <option value="solitons">solitons</option>
+        </select>
+        <button id="clear">clear</button>
+        <button id="reset">↻</button>
+    </div>
+
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script src="index.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width = W;
+        offscreen.height = H;
+        const offCtx = offscreen.getContext('2d', { alpha: false });
+        const imgData = offCtx.createImageData(W, H);
+        const buf32 = new Uint32Array(imgData.data.buffer);
+
+        const LUT = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            const val = i / 255;
+            const r = Math.min(255, (val * 637.5) | 0);
+            const g = Math.min(255, (val * 382.5) | 0);
+            const bVal = Math.min(255, ((1 - val) * 80 + val * 255) | 0);
+            LUT[i] = (255 << 24) | (bVal << 16) | (g << 8) | r;
+        }
+
+        const PRESETS = {
+            coral:    { F: 0.0545, k: 0.0620 },
+            mitosis:  { F: 0.0367, k: 0.0649 },
+            spirals:  { F: 0.0180, k: 0.0510 },
+            worms:    { F: 0.0780, k: 0.0610 },
+            solitons: { F: 0.0300, k: 0.0620 }
+        };
+
+        init();
+
+        function render() {
+            for (let i = 0; i < 8; i++) {
+                step();
+            }
+
+            for (let i = 0; i < SIZE; i++) {
+                const idx = (b[i] * 255) | 0;
+                buf32[i] = LUT[idx < 0 ? 0 : (idx > 255 ? 255 : idx)];
+            }
+
+            offCtx.putImageData(imgData, 0, 0);
+            ctx.drawImage(offscreen, 0, 0, canvas.width, canvas.height);
+
+            requestAnimationFrame(render);
+        }
+
+        let isDrawing = false;
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            addChemicalB((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height, 4);
+        }
+
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', () => isDrawing = false);
+
+        document.getElementById('preset').addEventListener('change', (e) => {
+            const p = PRESETS[e.target.value];
+            setParams(p.F, p.k);
+        });
+
+        document.getElementById('reset').addEventListener('click', init);
+        document.getElementById('clear').addEventListener('click', () => b.fill(0));
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
