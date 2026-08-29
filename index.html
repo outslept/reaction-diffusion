@@ -4,48 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>reaction diffusion</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            background: #111;
-            color: #888;
-            font: 12px monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            height: 100vh;
-        }
-
-        #controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        select, button {
-            font: inherit;
-            background: none;
-            color: #888;
-            border: 1px solid #333;
-            padding: 3px 8px;
-            cursor: pointer;
-        }
-
-        select:hover, button:hover {
-            border-color: #666;
-            color: #ccc;
-        }
-
-        canvas {
-            border: 1px solid #222;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="controls">
@@ -123,6 +82,7 @@
         document.getElementById('preset').addEventListener('change', (e) => {
             const p = PRESETS[e.target.value];
             setParams(p.F, p.k);
+            init();
         });
 
         document.getElementById('reset').addEventListener('click', init);
