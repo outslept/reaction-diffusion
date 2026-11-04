@@ -7,23 +7,79 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="controls">
-        <select id="preset">
-            <option value="coral">coral</option>
-            <option value="mitosis">mitosis</option>
-            <option value="spirals">spirals</option>
-            <option value="worms">worms</option>
-            <option value="solitons">solitons</option>
-        </select>
-        <button id="clear">clear</button>
-        <button id="reset">↻</button>
-    </div>
+    <main class="stage">
+        <header class="hud" id="controls">
+            <div class="tabs-wrapper" role="tablist" aria-label="Simulation presets">
+                <div class="tabs-list" id="tabs-base">
+                    <button role="tab" aria-selected="true" data-preset="coral">coral</button>
+                    <button role="tab" aria-selected="false" data-preset="mitosis">mitosis</button>
+                    <button role="tab" aria-selected="false" data-preset="spirals">spirals</button>
+                    <button role="tab" aria-selected="false" data-preset="worms">worms</button>
+                    <button role="tab" aria-selected="false" data-preset="solitons">solitons</button>
+                </div>
+                <div class="tabs-list tabs-overlay" id="tabs-overlay" aria-hidden="true">
+                    <span class="tab-clone">coral</span>
+                    <span class="tab-clone">mitosis</span>
+                    <span class="tab-clone">spirals</span>
+                    <span class="tab-clone">worms</span>
+                    <span class="tab-clone">solitons</span>
+                </div>
+            </div>
 
-    <canvas id="canvas" width="800" height="600"></canvas>
+            <div class="divider"></div>
+
+            <div class="metrics" id="metrics" aria-live="polite">
+                <span><abbr title="Feed rate">F</abbr> <strong id="val-f">0.0545</strong></span>
+                <span><abbr title="Kill rate">k</abbr> <strong id="val-k">0.0620</strong></span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="actions" id="actions">
+                <button class="icon-btn" id="toggle-play" aria-label="Pause simulation" data-state="playing">
+                    <svg class="icon icon-pause" viewBox="0 0 16 16" fill="none">
+                        <rect x="4" y="3" width="2.5" height="10" rx="1" fill="currentColor"/>
+                        <rect x="9.5" y="3" width="2.5" height="10" rx="1" fill="currentColor"/>
+                    </svg>
+                    <svg class="icon icon-play" viewBox="0 0 16 16" fill="none">
+                        <path d="M4.5 3.2C4.5 2.65 5.1 2.32 5.56 2.62L12.7 7.42C13.1 7.7 13.1 8.3 12.7 8.58L5.56 13.38C5.1 13.68 4.5 13.35 4.5 12.8V3.2Z" fill="currentColor"/>
+                    </svg>
+                    <span class="tooltip" role="tooltip">Pause <kbd>Space</kbd></span>
+                </button>
+
+                <button class="icon-btn" id="clear" aria-label="Clear canvas">
+                    <svg class="icon icon-default" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 4.5H13M5.5 4.5V3.5C5.5 2.95 5.95 2.5 6.5 2.5H9.5C10.05 2.5 10.5 2.95 10.5 3.5V4.5M4.2 4.5L4.8 12.5C4.85 13.05 5.3 13.5 5.85 13.5H10.15C10.7 13.5 11.15 13.05 11.2 12.5L11.8 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg class="icon icon-done" viewBox="0 0 16 16" fill="none">
+                        <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="tooltip" role="tooltip">Clear <kbd>C</kbd></span>
+                </button>
+
+                <button class="icon-btn" id="reset" aria-label="Reset seed">
+                    <svg class="icon icon-default" viewBox="0 0 16 16" fill="none">
+                        <path d="M12.5 8A4.5 4.5 0 1 1 11.1 4.7M12.5 2.8V5.3H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg class="icon icon-done" viewBox="0 0 16 16" fill="none">
+                        <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="tooltip" role="tooltip">Reset <kbd>R</kbd></span>
+                </button>
+            </div>
+        </header>
+
+        <div class="canvas-frame" id="canvas-frame">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div class="brush-cursor" id="brush-cursor" aria-hidden="true"></div>
+        </div>
+    </main>
 
     <script src="index.js"></script>
     <script>
         const canvas = document.getElementById('canvas');
+        const canvasFrame = document.getElementById('canvas-frame');
+        const brushCursor = document.getElementById('brush-cursor');
         const ctx = canvas.getContext('2d', { alpha: false });
 
         const offscreen = document.createElement('canvas');
@@ -38,7 +94,7 @@
             const val = i / 255;
             const r = Math.min(255, (val * 637.5) | 0);
             const g = Math.min(255, (val * 382.5) | 0);
-            const bVal = Math.min(255, ((1 - val) * 80 + val * 255) | 0);
+            const bVal = Math.min(255, ((1 - val) * 65 + val * 255) | 0);
             LUT[i] = (255 << 24) | (bVal << 16) | (g << 8) | r;
         }
 
@@ -50,11 +106,228 @@
             solitons: { F: 0.0300, k: 0.0620 }
         };
 
+        const PRESET_KEYS = Object.keys(PRESETS);
+        let isPlaying = true;
+        let brushRadius = 4;
+
         init();
 
+        const tabsBase = document.getElementById('tabs-base');
+        const tabsOverlay = document.getElementById('tabs-overlay');
+        const tabButtons = Array.from(tabsBase.querySelectorAll('button[role="tab"]'));
+        const valF = document.getElementById('val-f');
+        const valK = document.getElementById('val-k');
+        const metricsEl = document.getElementById('metrics');
+
+        function updateTabClip(activeBtn, instant = false) {
+            const parentRect = tabsBase.getBoundingClientRect();
+            const btnRect = activeBtn.getBoundingClientRect();
+            const left = ((btnRect.left - parentRect.left) / parentRect.width) * 100;
+            const right = 100 - (((btnRect.right - parentRect.left) / parentRect.width) * 100);
+
+            if (instant) {
+                tabsOverlay.dataset.instant = 'true';
+            } else {
+                delete tabsOverlay.dataset.instant;
+            }
+
+            tabsOverlay.style.clipPath = `inset(0 ${right.toFixed(2)}% 0 ${left.toFixed(2)}% round 6px)`;
+        }
+
+        function selectPreset(presetName, viaKeyboard = false) {
+            const btn = tabButtons.find(b => b.dataset.preset === presetName);
+            if (!btn) return;
+
+            tabButtons.forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+            updateTabClip(btn, viaKeyboard);
+
+            const p = PRESETS[presetName];
+            setParams(p.F, p.k);
+
+            if (!viaKeyboard) {
+                metricsEl.classList.add('transitioning');
+                setTimeout(() => {
+                    valF.textContent = p.F.toFixed(4);
+                    valK.textContent = p.k.toFixed(4);
+                    metricsEl.classList.remove('transitioning');
+                }, 90);
+            } else {
+                valF.textContent = p.F.toFixed(4);
+                valK.textContent = p.k.toFixed(4);
+            }
+
+            init();
+        }
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => selectPreset(btn.dataset.preset, false));
+        });
+
+        window.addEventListener('resize', () => {
+            const current = tabsBase.querySelector('[aria-selected="true"]');
+            if (current) updateTabClip(current, true);
+        });
+        updateTabClip(tabButtons[0], true);
+
+        const actionsContainer = document.getElementById('actions');
+        let tooltipWarmTimer = null;
+
+        actionsContainer.addEventListener('pointerenter', () => {
+            clearTimeout(tooltipWarmTimer);
+        });
+
+        actionsContainer.querySelectorAll('.icon-btn').forEach(btn => {
+            btn.addEventListener('pointerenter', () => {
+                if (actionsContainer.dataset.warm === 'true') {
+                    btn.dataset.instant = 'true';
+                } else {
+                    btn._warmTimeout = setTimeout(() => {
+                        actionsContainer.dataset.warm = 'true';
+                    }, 320);
+                }
+            });
+            btn.addEventListener('pointerleave', () => {
+                clearTimeout(btn._warmTimeout);
+                delete btn.dataset.instant;
+            });
+        });
+
+        actionsContainer.addEventListener('pointerleave', () => {
+            tooltipWarmTimer = setTimeout(() => {
+                delete actionsContainer.dataset.warm;
+            }, 350);
+        });
+
+        function flashConfirmState(btn) {
+            clearTimeout(btn._confirmTimer);
+            btn.dataset.confirmed = 'true';
+            btn._confirmTimer = setTimeout(() => {
+                delete btn.dataset.confirmed;
+            }, 650);
+        }
+
+        const togglePlayBtn = document.getElementById('toggle-play');
+        const toggleTooltip = togglePlayBtn.querySelector('.tooltip');
+
+        function togglePlay(viaKeyboard = false) {
+            isPlaying = !isPlaying;
+            if (viaKeyboard) {
+                togglePlayBtn.dataset.instant = 'true';
+                requestAnimationFrame(() => delete togglePlayBtn.dataset.instant);
+            }
+            togglePlayBtn.dataset.state = isPlaying ? 'playing' : 'paused';
+            togglePlayBtn.setAttribute('aria-label', isPlaying ? 'Pause simulation' : 'Resume simulation');
+            toggleTooltip.innerHTML = `${isPlaying ? 'Pause' : 'Play'} <kbd>Space</kbd>`;
+        }
+
+        togglePlayBtn.addEventListener('click', () => togglePlay(false));
+
+        const clearBtn = document.getElementById('clear');
+        clearBtn.addEventListener('click', () => {
+            b.fill(0);
+            flashConfirmState(clearBtn);
+        });
+
+        const resetBtn = document.getElementById('reset');
+        resetBtn.addEventListener('click', () => {
+            init();
+            flashConfirmState(resetBtn);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlay(true);
+            } else if (e.key === 'c' || e.key === 'C') {
+                b.fill(0);
+            } else if (e.key === 'r' || e.key === 'R') {
+                init();
+            } else if (e.key >= '1' && e.key <= '5') {
+                const idx = Number(e.key) - 1;
+                if (PRESET_KEYS[idx]) selectPreset(PRESET_KEYS[idx], true);
+            }
+        });
+
+        let activePointerId = null;
+        let lastNormX = null;
+        let lastNormY = null;
+
+        function updateCursorPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const visualDiameter = (brushRadius * 2) * (rect.width / W);
+            brushCursor.style.width = `${visualDiameter}px`;
+            brushCursor.style.height = `${visualDiameter}px`;
+            brushCursor.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(${activePointerId !== null ? 0.92 : 1})`;
+        }
+
+        function draw(e) {
+            if (e.pointerId !== activePointerId) return;
+            const rect = canvas.getBoundingClientRect();
+            const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+            if (lastNormX !== null && lastNormY !== null) {
+                addChemicalBLine(lastNormX, lastNormY, normX, normY, brushRadius);
+            } else {
+                addChemicalB(normX, normY, brushRadius);
+            }
+
+            lastNormX = normX;
+            lastNormY = normY;
+        }
+
+        canvas.addEventListener('pointerenter', (e) => {
+            brushCursor.dataset.visible = 'true';
+            updateCursorPos(e);
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            if (activePointerId === null) {
+                delete brushCursor.dataset.visible;
+            }
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (activePointerId !== null) return;
+            activePointerId = e.pointerId;
+            canvas.setPointerCapture(e.pointerId);
+            lastNormX = null;
+            lastNormY = null;
+            draw(e);
+            updateCursorPos(e);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            updateCursorPos(e);
+            draw(e);
+        });
+
+        function endDrag(e) {
+            if (e.pointerId !== activePointerId) return;
+            activePointerId = null;
+            lastNormX = null;
+            lastNormY = null;
+            updateCursorPos(e);
+        }
+
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            brushRadius = Math.max(2, Math.min(14, brushRadius - Math.sign(e.deltaY)));
+            updateCursorPos(e);
+        }, { passive: false });
+
         function render() {
-            for (let i = 0; i < 8; i++) {
-                step();
+            if (isPlaying) {
+                for (let i = 0; i < 8; i++) {
+                    step();
+                }
             }
 
             for (let i = 0; i < SIZE; i++) {
@@ -67,26 +340,6 @@
 
             requestAnimationFrame(render);
         }
-
-        let isDrawing = false;
-        function draw(e) {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            addChemicalB((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height, 4);
-        }
-
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
-        canvas.addEventListener('mousemove', draw);
-        window.addEventListener('mouseup', () => isDrawing = false);
-
-        document.getElementById('preset').addEventListener('change', (e) => {
-            const p = PRESETS[e.target.value];
-            setParams(p.F, p.k);
-            init();
-        });
-
-        document.getElementById('reset').addEventListener('click', init);
-        document.getElementById('clear').addEventListener('click', () => b.fill(0));
 
         requestAnimationFrame(render);
     </script>
