@@ -14,17 +14,26 @@ let k = 0.0620;
 
 function init() {
     a.fill(1.0);
-    seedSquare(100, 75, 10);
+    b.fill(0.0);
+    seedCircle(W >> 1, H >> 1, 10);
 }
 
-function seedSquare(cx, cy, radius) {
-    const minX = Math.max(0, cx - radius);
-    const maxX = Math.min(W, cx + radius);
-    const minY = Math.max(0, cy - radius);
-    const maxY = Math.min(H, cy + radius);
+function seedCircle(cx, cy, radius) {
+    const r2 = radius * radius;
+    const minX = Math.max(1, (cx - radius) | 0);
+    const maxX = Math.min(W - 1, (cx + radius) | 0);
+    const minY = Math.max(1, (cy - radius) | 0);
+    const maxY = Math.min(H - 1, (cy + radius) | 0);
 
     for (let y = minY; y < maxY; y++) {
-        b.fill(1.0, y * W + minX, y * W + maxX);
+        const dy = y - cy;
+        const row = y * W;
+        for (let x = minX; x < maxX; x++) {
+            const dx = x - cx;
+            if (dx * dx + dy * dy <= r2) {
+                b[row + x] = 1.0;
+            }
+        }
     }
 }
 
@@ -63,5 +72,19 @@ function setParams(newF, newK) {
 }
 
 function addChemicalB(normX, normY, radius) {
-    seedSquare((normX * W) | 0, (normY * H) | 0, radius);
+    seedCircle(normX * W, normY * H, radius);
+}
+
+function addChemicalBLine(x0, y0, x1, y1, radius) {
+    const gx0 = x0 * W;
+    const gy0 = y0 * H;
+    const gx1 = x1 * W;
+    const gy1 = y1 * H;
+    const dist = Math.hypot(gx1 - gx0, gy1 - gy0);
+    const steps = Math.max(1, Math.ceil(dist / (radius * 0.4)));
+
+    for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        seedCircle(gx0 + (gx1 - gx0) * t, gy0 + (gy1 - gy0) * t, radius);
+    }
 }
